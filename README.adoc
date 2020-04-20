@@ -1,0 +1,85 @@
+= Developping a GraphQL client with MicroProfile and Quarkus
+
+This project illustrates how to develop a GraphQL client using MicroProfile. 
+
+More specifically it is based on https://github.com/americanexpress/nodes[Nodes], a Java GraphQL client library developed by American Express, and a demo application developped by  Phillip Kruger.
+
+== Installing and running the server application
+
+Phillip Kruger's  https://github.com/phillip-kruger/graphql-example[graphql-example]
+is available on GitHub.
+
+To run it:
+
+. Fork or download the GitHub repository
+. Switch to Java 8, the example currently doesn't work with newer version
+. _cd person-example_
+. _mvn thorntail:run_
+. Interract with the GraphQL endpoint with GraphiQL from  http://localhost:8080/graphiql/ 
+
+https://github.com/graphql/graphiql[GraphiQL] is a JavaScript-based web GUI that enables to discover any GraphQL schema and run operations against it.
+
+Please note that person-example must be started to build this project (__mvn package__ and __mvn package -Pnative__).
+
+== Package structure
+
+The project is based on 2 services (Person and Profile) each made of 3 layers following the _Entity Control Boundary_ model:
+
+. *A boundary layer* exposing a fully-documented REST API
+. *An entity layer* holding the data used by GraphQL operations and results
+. *A control layer* making use of Nodes specific API, running GraphQL operations.
+
+== Running the project
+
+To play around with the project, all you have to do is let yourself be guided by the http://localhost:9090/swagger-ui/[Swagger GUI]. To get familiar with the GraphQL syntax, operations and responses are logged in INFO mode. We can copy-paste and run them with GraphiQL.
+
+Of course, in real life this direct mapping from REST to GraphQL, with no intermediate business logic, wouldn't make sense. This is just for the purpose of learning.
+
+== Quarkus configuration
+
+To avoid port conflict with the _person-example_ backing service (which run on port 8080 by default), Quarkus has been configured to run on port 9090:
+[source,properties]
+----
+quarkus.http.port=9090
+----
+
+To enable the Swagger GUI in production and native mode, _quarkus.swagger-ui.always-include_ has been set to true:
+[source,properties]
+----
+quarkus.swagger-ui.always-include=true
+----
+
+To enable the application to run in native mode using GraalVM, classes that are subject to introspection must be annotated with __@RegisterForReflection__. To make it simple, all classes in entity packages have been annotated with it. 
+
+Two Nodes classes must also be declared explicity for introspection. To avoid changing their code, it is necessary to declare them in a config file:
+[source,json]
+----
+[
+  {
+    "name" : "io.aexp.nodes.graphql.Wrapper",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "allDeclaredFields" : true,
+    "allPublicFields" : true
+  },
+  {
+    "name" : "io.aexp.nodes.graphql.Request",
+    "allDeclaredConstructors" : true,
+    "allPublicConstructors" : true,
+    "allDeclaredMethods" : true,
+    "allPublicMethods" : true,
+    "allDeclaredFields" : true,
+    "allPublicFields" : true
+  }
+]
+----
+This file is named _reflection-config.json_ ans located in __src/main/ressources__. 
+
+It must be declared in application.properties:
+[source,properties]
+----
+quarkus.native.additional-build-args =-H:ReflectionConfigurationFiles=reflection-config.json
+----
+
